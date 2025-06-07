@@ -214,13 +214,7 @@ If you face issues:
 - Search or open an issue on GitHub  
 - Include OS, Node.js version, and error logs for quicker help
 
----
 
-## 📄 License
-
-Licensed under the [MIT License](./LICENSE).
-
----
 
 ## 🌟 Acknowledgments
 
