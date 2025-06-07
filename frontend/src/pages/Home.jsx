@@ -224,7 +224,7 @@ function Home() {
             <button>Contact</button>
           </div>
           <div className="footer-social">
-            <a href="https://github.com/SanthoshBhargav/ZCoder" target="_blank" rel="noreferrer">
+            <a href="https://github.com/chethanreddy10/ZCoder" target="_blank" rel="noreferrer">
               <LuGithub />
             </a>
           </div>
