@@ -68,7 +68,7 @@ Create a `.env` file inside the `backend` directory:
 ```env
 MONGODB_URI="connection-string of mongoDB"/Zcoder(so that if initailly not present then it will be created in your cluster).
 PORT=3000
-GROQ_API_KEY=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
+GROQ_API_KEY=
 
 ```
 
