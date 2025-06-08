@@ -1,0 +1,19 @@
+{
+    "version": 2,
+    "builds": [
+    {
+    "src": "./index.js",
+    "use": "@vercel/node"
+    }
+    ],
+    "routes": [
+    {
+    "src": "/(.*)",
+    "dest": "/"
+    }
+    ],
+    "env": {
+    "MONGODB_URI" : "mongodb+srv://gsb:49lvx3c9@zcoder.fpqbsey.mongodb.net/",
+    "GROQ_API_KEY" : "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"
+    }
+}
