@@ -1,713 +1,204 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import "../styles/Calendar.css";
+import React, { useEffect, useState } from 'react';
+import moment from 'moment-timezone';
+import axios from 'axios';
+import { CircularProgress, Box } from '@mui/material';
+import '../styles/Calendar.css';
 
-// Error Boundary Component
-class CalendarErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
 
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    console.error("Calendar Error:", error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="error-container">
-          <h2>Something went wrong with the calendar</h2>
-          <p>Please refresh the page or try again later.</p>
-          <button
-            onClick={() => {
-              this.setState({ hasError: false, error: null });
-              window.location.reload();
-            }}
-            className="retry-button"
-          >
-            Refresh Page
-          </button>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-// Enhanced localStorage hook with better persistence
-const useStickyState = (defaultValue, key) => {
-  const [value, setValue] = useState(() => {
-    try {
-      if (typeof window === "undefined") return defaultValue;
-
-      const stickyValue = window.localStorage.getItem(key);
-      if (stickyValue !== null) {
-        const parsed = JSON.parse(stickyValue);
-
-        // Special handling for date objects
-        if (key === "calendar-current-date") {
-          const date = new Date(parsed);
-          return isNaN(date.getTime()) ? defaultValue : date;
-        }
-
-        return parsed;
-      }
-    } catch (error) {
-      console.error(`Error reading localStorage key "${key}":`, error);
-    }
-    return defaultValue;
-  });
-
-  useEffect(() => {
-    try {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(key, JSON.stringify(value));
-      }
-    } catch (error) {
-      console.error(`Error saving to localStorage key "${key}":`, error);
-    }
-  }, [key, value]);
-
-  return [value, setValue];
-};
-
-// Contest fetchers for different platforms
-const contestFetchers = {
-  // Codeforces API
-  codeforces: async () => {
-    try {
-      const response = await fetch("https://codeforces.com/api/contest.list");
-      if (!response.ok) throw new Error("Codeforces API failed");
-
-      const data = await response.json();
-      if (data.status === "OK") {
-        return data.result
-          .filter(contest => contest.phase === "BEFORE")
-          .map(contest => ({
-            id: `codeforces-${contest.id}`,
-            name: contest.name,
-            site: "Codeforces",
-            start_time: new Date(contest.startTimeSeconds * 1000),
-            duration: contest.durationSeconds,
-            url: `https://codeforces.com/contest/${contest.id}`,
-            verified: true,
-            color: "#1f8dd6"
-          }));
-      }
-      return [];
-    } catch (error) {
-      console.error("Codeforces fetch error:", error);
-      return [];
-    }
-  },
-
-  // AtCoder API (Fixed CORS issue)
-  atcoder: async () => {
-    try {
-      // Use the official AtCoder Problems API which supports CORS
-      const response = await fetch("https://kenkoooo.com/atcoder/resources/contests.json");
-      if (!response.ok) {
-        throw new Error(`AtCoder API failed with status: ${response.status}`);
-      }
-
-      const contests = await response.json();
-      const now = Date.now() / 1000;
-
-      // Filter for upcoming contests and convert to our format
-      const upcomingContests = contests
-        .filter(contest => {
-          const startTime = contest.start_epoch_second;
-          return startTime > now; // Only future contests
-        })
-        .slice(0, 15) // Limit to avoid too many contests
-        .map(contest => ({
-          id: `atcoder-${contest.id}`,
-          name: contest.title,
-          site: "AtCoder",
-          start_time: new Date(contest.start_epoch_second * 1000),
-          duration: contest.duration_second,
-          url: `https://atcoder.jp/contests/${contest.id}`,
-          verified: true,
-          color: "#ff6b35"
-        }));
-
-      return upcomingContests;
-    } catch (error) {
-      console.error("AtCoder fetch error:", error);
-
-      // Enhanced fallback with more realistic sample data
-      const now = new Date();
-      const sampleContests = [
-        {
-          id: "atcoder-abc359",
-          name: "AtCoder Beginner Contest 359",
-          site: "AtCoder",
-          start_time: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000),
-          duration: 6000, // 100 minutes
-          url: "https://atcoder.jp/contests/abc359",
-          verified: false,
-          color: "#ff6b35"
-        },
-        {
-          id: "atcoder-arc181",
-          name: "AtCoder Regular Contest 181",
-          site: "AtCoder",
-          start_time: new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000),
-          duration: 7200, // 120 minutes
-          url: "https://atcoder.jp/contests/arc181",
-          verified: false,
-          color: "#ff6b35"
-        },
-        {
-          id: "atcoder-agc064",
-          name: "AtCoder Grand Contest 064",
-          site: "AtCoder",
-          start_time: new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000),
-          duration: 7200, // 120 minutes
-          url: "https://atcoder.jp/contests/agc064",
-          verified: false,
-          color: "#ff6b35"
-        }
-      ];
-
-      return sampleContests;
-    }
-  },
-
-  // CodeChef API (using sample data since no public API)
-  codechef: async () => {
-    try {
-      // CodeChef doesn't have a public API for contests, so we'll use sample data
-      const now = new Date();
-      const futureContests = [
-        {
-          id: "codechef-starters140",
-          name: "Starters 140 (Div. 2)",
-          site: "CodeChef",
-          start_time: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000), // 1 day from now
-          duration: 7200, // 2 hours
-          url: "https://www.codechef.com/START140",
-          verified: false,
-          color: "#5d4037"
-        },
-        {
-          id: "codechef-starters141",
-          name: "Starters 141 (Div. 2)",
-          site: "CodeChef",
-          start_time: new Date(now.getTime() + 8 * 24 * 60 * 60 * 1000), // 8 days from now
-          duration: 7200, // 2 hours
-          url: "https://www.codechef.com/START141",
-          verified: false,
-          color: "#5d4037"
-        },
-        {
-          id: "codechef-long-june",
-          name: "June Long Challenge 2025",
-          site: "CodeChef",
-          start_time: new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000), // 15 days from now
-          duration: 432000, // 5 days
-          url: "https://www.codechef.com/JUNE25",
-          verified: false,
-          color: "#5d4037"
-        }
-      ];
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      return futureContests;
-    } catch (error) {
-      console.error("CodeChef fetch error:", error);
-      return [];
-    }
-  },
-
-  // LeetCode contests (sample data as they don't have a public API)
-  leetcode: async () => {
-    try {
-      const now = new Date();
-      const futureContests = [
-        {
-          id: "leetcode-weekly402",
-          name: "Weekly Contest 402",
-          site: "LeetCode",
-          start_time: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
-          duration: 5400, // 1.5 hours
-          url: "https://leetcode.com/contest/weekly-contest-402",
-          verified: false,
-          color: "#ffa116"
-        },
-        {
-          id: "leetcode-biweekly134",
-          name: "Biweekly Contest 134",
-          site: "LeetCode",
-          start_time: new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000), // 5 days from now
-          duration: 5400, // 1.5 hours
-          url: "https://leetcode.com/contest/biweekly-contest-134",
-          verified: false,
-          color: "#ffa116"
-        },
-        {
-          id: "leetcode-weekly403",
-          name: "Weekly Contest 403",
-          site: "LeetCode",
-          start_time: new Date(now.getTime() + 9 * 24 * 60 * 60 * 1000), // 9 days from now
-          duration: 5400, // 1.5 hours
-          url: "https://leetcode.com/contest/weekly-contest-403",
-          verified: false,
-          color: "#ffa116"
-        }
-      ];
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 600));
-      return futureContests;
-    } catch (error) {
-      console.error("LeetCode fetch error:", error);
-      return [];
-    }
-  },
-
-  // HackerRank contests (sample data)
-  hackerrank: async () => {
-    try {
-      const now = new Date();
-      const futureContests = [
-        {
-          id: "hackerrank-june-circuit",
-          name: "June Circuit 2025",
-          site: "HackerRank",
-          start_time: new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000), // 6 days from now
-          duration: 28800, // 8 hours
-          url: "https://www.hackerrank.com/contests/june-circuit-2025",
-          verified: false,
-          color: "#00b894"
-        },
-        {
-          id: "hackerrank-hiring-challenge",
-          name: "Hiring Challenge 2025",
-          site: "HackerRank",
-          start_time: new Date(now.getTime() + 12 * 24 * 60 * 60 * 1000), // 12 days from now
-          duration: 14400, // 4 hours
-          url: "https://www.hackerrank.com/contests/hiring-challenge-2025",
-          verified: false,
-          color: "#00b894"
-        }
-      ];
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return futureContests;
-    } catch (error) {
-      console.error("HackerRank fetch error:", error);
-      return [];
-    }
-  }
-};
-
-// Loading Component
-const LoadingSpinner = () => (
-  <div className="loading-container">
-    <div className="loading-spinner">⟳</div>
-    <p>Loading contests...</p>
-  </div>
-);
-
-// Main Calendar Component
 const Calendar = () => {
-  const navigate = useNavigate();
+    const [currentDate, setCurrentDate] = useState(moment());
+    const [contests, setContests] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [selectedDate, setSelectedDate] = useState(moment().format('YYYY-MM-DD'));
 
-  // State management with persistent storage
-  const [currentDate, setCurrentDate] = useStickyState(
-    new Date(),
-    "calendar-current-date"
-  );
+    useEffect(() => {
+        const fetchContests = async () => {
+            try {
+                const { data } = await axios.get("https://api.digitomize.com/contests");
+                setContests(data.results);
+                setLoading(false);
+            } catch (err) {
+                setError(err.message);
+                setLoading(false);
+            }
+        };
 
-  // Fixed selectedPlatforms with useStickyState
-  const [selectedPlatforms, setSelectedPlatforms] = useStickyState(
-    ['Codeforces', 'AtCoder', 'CodeChef', 'LeetCode', 'HackerRank'],
-    "calendar-selected-platforms"
-  );
+        fetchContests();
+    }, []);
 
-  const [contests, setContests] = useState([]);
-  const [selectedDateContests, setSelectedDateContests] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [platformStatus, setPlatformStatus] = useState({});
+    const startOfMonth = currentDate.clone().startOf('month');
+    const endOfMonth = currentDate.clone().endOf('month');
+    const startDate = startOfMonth.clone().startOf('week');
+    const endDate = endOfMonth.clone().endOf('week');
 
-  const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ];
-
-  const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-  // Check authentication
-  useEffect(() => {
-    const jwtoken = localStorage.getItem("jwtoken");
-    if (!jwtoken) {
-      navigate("/login");
-    }
-  }, [navigate]);
-
-  // Ensure currentDate is always a valid Date object
-  useEffect(() => {
-    if (!(currentDate instanceof Date) || isNaN(currentDate.getTime())) {
-      setCurrentDate(new Date());
-    }
-  }, [currentDate, setCurrentDate]);
-
-  // Enhanced contest fetching with better error handling
-  const fetchContests = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    const initialStatus = {};
-    Object.keys(contestFetchers).forEach(platform => {
-      initialStatus[platform] = 'loading';
-    });
-    setPlatformStatus(initialStatus);
-
-    try {
-      const contestPromises = Object.entries(contestFetchers).map(async ([platform, fetcher]) => {
-        try {
-          const contests = await fetcher();
-          setPlatformStatus(prev => ({
-            ...prev,
-            [platform]: contests.length > 0 ? 'success' : 'partial'
-          }));
-          return contests;
-        } catch (error) {
-          console.error(`Error fetching ${platform} contests:`, error);
-          setPlatformStatus(prev => ({ ...prev, [platform]: 'error' }));
-
-          // Return empty array instead of throwing to prevent Promise.all from failing
-          return [];
-        }
-      });
-
-      const contestArrays = await Promise.all(contestPromises);
-      const allContests = contestArrays.flat();
-
-      // Sort contests by start time
-      allContests.sort((a, b) => a.start_time - b.start_time);
-
-      setContests(allContests);
-
-      // Show warning if some platforms failed
-      const failedPlatforms = Object.entries(platformStatus)
-        .filter(([_, status]) => status === 'error')
-        .map(([platform, _]) => platform);
-
-      if (failedPlatforms.length > 0 && allContests.length > 0) {
-        setError(`Some platforms failed to load: ${failedPlatforms.join(', ')}. Using cached/sample data.`);
-      } else if (allContests.length === 0) {
-        setError("No upcoming contests found from any platform.");
-      }
-    } catch (error) {
-      console.error("Error fetching contests:", error);
-      setError("Failed to fetch contests from platforms.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchContests();
-  }, [fetchContests]);
-
-  // Filter contests by selected platforms
-  const filteredContests = contests.filter(contest =>
-    selectedPlatforms.includes(contest.site)
-  );
-
-  // Get contest counts by platform
-  const contestCounts = contests.reduce((acc, contest) => {
-    acc[contest.site] = (acc[contest.site] || 0) + 1;
-    return acc;
-  }, {});
-
-  const getDaysInMonth = useCallback((date) => {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  }, []);
-
-  const getFirstDayOfMonth = useCallback((date) => {
-    const firstDay = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
-    return firstDay === 0 ? 6 : firstDay - 1;
-  }, []);
-
-  const hasContestOnDate = useCallback((date) => {
-    return filteredContests.some(contest => {
-      const contestDate = contest.start_time;
-      return (
-        contestDate.getFullYear() === date.getFullYear() &&
-        contestDate.getMonth() === date.getMonth() &&
-        contestDate.getDate() === date.getDate()
-      );
-    });
-  }, [filteredContests]);
-
-  const getContestsForDate = useCallback((date) => {
-    return filteredContests
-      .filter(contest => {
-        const contestDate = contest.start_time;
-        return (
-          contestDate.getFullYear() === date.getFullYear() &&
-          contestDate.getMonth() === date.getMonth() &&
-          contestDate.getDate() === date.getDate()
-        );
-      })
-      .sort((a, b) => a.start_time - b.start_time);
-  }, [filteredContests]);
-
-  const handleDateClick = useCallback((day) => {
-    const clickedDate = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth(),
-      day
-    );
-    setSelectedDateContests(getContestsForDate(clickedDate));
-  }, [currentDate, getContestsForDate]);
-
-  const handlePlatformToggle = useCallback((platform) => {
-    setSelectedPlatforms(prev =>
-      prev.includes(platform)
-        ? prev.filter(p => p !== platform)
-        : [...prev, platform]
-    );
-    setSelectedDateContests([]);
-  }, [setSelectedPlatforms]);
-
-  const navigateMonth = useCallback((direction) => {
-    setCurrentDate(prevDate => {
-      const newDate = new Date(prevDate);
-      newDate.setMonth(newDate.getMonth() + direction);
-      return newDate;
-    });
-    setSelectedDateContests([]);
-  }, [setCurrentDate]);
-
-  const navigateYear = useCallback((direction) => {
-    setCurrentDate(prevDate => {
-      const newDate = new Date(prevDate);
-      newDate.setFullYear(newDate.getFullYear() + direction);
-      return newDate;
-    });
-    setSelectedDateContests([]);
-  }, [setCurrentDate]);
-
-  const renderCalendarDays = useCallback(() => {
-    const daysInMonth = getDaysInMonth(currentDate);
-    const firstDay = getFirstDayOfMonth(currentDate);
     const days = [];
+    let day = startDate.clone();
 
-    // Empty days for alignment
-    for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
+    while (day.isBefore(endDate, 'day')) {
+        days.push(day.clone());
+        day.add(1, 'day');
     }
 
-    // Actual days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth(),
-        day
-      );
-      const hasContest = hasContestOnDate(date);
-      const contestsForDay = getContestsForDate(date);
+    const nextMonth = () => {
+        setCurrentDate(currentDate.clone().add(1, 'month'));
+    };
 
-      days.push(
-        <div
-          key={day}
-          className={`calendar-day ${hasContest ? "has-contest" : ""}`}
-          onClick={() => handleDateClick(day)}
-        >
-          <span className="day-number">{day}</span>
-          {hasContest && (
-            <div className="contest-indicator">
-              <div className="contest-dots">
-                {contestsForDay.slice(0, 3).map((contest, index) => (
-                  <div
-                    key={contest.id}
-                    className="contest-dot"
-                    style={{ backgroundColor: contest.color }}
-                    title={`${contest.site}: ${contest.name}`}
-                  ></div>
-                ))}
-              </div>
-              {contestsForDay.length > 3 && (
-                <span className="contest-count">+{contestsForDay.length - 3}</span>
-              )}
-              {contestsForDay.length <= 3 && contestsForDay.length > 1 && (
-                <span className="contest-count">{contestsForDay.length}</span>
-              )}
-            </div>
-          )}
-        </div>
-      );
+    const prevMonth = () => {
+        setCurrentDate(currentDate.clone().subtract(1, 'month'));
+    };
+
+    const getContestsForDate = (date) => {
+        return contests.filter(contest => {
+            const contestDate = moment.unix(contest.startTimeUnix).format('YYYY-MM-DD');
+            return contestDate === date.format('YYYY-MM-DD');
+        });
+    };
+
+    const handleDateClick = (date) => {
+        setSelectedDate(date.format('YYYY-MM-DD'));
+    };
+
+    const generateTimeAndDateURL = (startTimeUnix) => {
+        const utcDateAndTime = moment.tz(startTimeUnix * 1000, "UTC");
+        const utcStartMonth = utcDateAndTime.format("MM");
+        const utcStartDate = utcDateAndTime.format("DD");
+        const utcStartYear = utcDateAndTime.format("YYYY");
+        const utcStartTime = utcDateAndTime.format("HH:mm:ss");
+        const utcStartHour = utcStartTime.split(":")[0];
+        const utcStartMin = utcStartTime.split(":")[1];
+        const utcStartSec = utcStartTime.split(":")[2];
+
+        const timeAndDateURL = new URL("https://timeanddate.com/worldclock/fixedtime.html");
+        const params = {
+            day: utcStartDate,
+            month: utcStartMonth,
+            year: utcStartYear,
+            hour: utcStartHour,
+            min: utcStartMin,
+            sec: utcStartSec,
+            p1: 1440, // UTC
+        };
+
+        timeAndDateURL.search = new URLSearchParams(params).toString();
+        return timeAndDateURL.href;
+    };
+
+    if (loading) {
+        return (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh" bgcolor="black">
+                <CircularProgress />
+            </Box>
+        );
     }
 
-    return days;
-  }, [
-    currentDate,
-    getDaysInMonth,
-    getFirstDayOfMonth,
-    hasContestOnDate,
-    getContestsForDate,
-    handleDateClick
-  ]);
+    if (error) {
+        return (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh" bgcolor="black">
+                <div className="error-message">Error: {error}</div>
+            </Box>
+        );
+    }
 
-  if (!currentDate || isNaN(currentDate.getTime())) {
     return (
-      <div className="error-container">
-        <h2>Calendar Error</h2>
-        <p>Invalid date detected. Please refresh the page.</p>
-        <button onClick={() => window.location.reload()}>Refresh</button>
-      </div>
+        <>
+            <div className="calendar-container">
+                <div className="calendar-wrapper">
+                    <div className="calendar-section">
+                        <div className="calendar-header">
+                            <div className="navigation">
+                                <button className="nav-button" onClick={prevMonth}>&lt;</button>
+                                <h2 className="month-year">{currentDate.format('MMMM YYYY')}</h2>
+                                <button className="nav-button" onClick={nextMonth}>&gt;</button>
+                            </div>
+                        </div>
+
+                        <div className="calendar-grid">
+                            <div className="days-header">
+                                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                                    <div key={day} className="day-header">{day}</div>
+                                ))}
+                            </div>
+
+                            <div className="days-grid">
+                                {days.map((day, idx) => {
+                                    const isCurrentMonth = day.isSame(currentDate, 'month');
+                                    const isToday = day.isSame(moment(), 'day');
+                                    const dateKey = day.format('YYYY-MM-DD');
+                                    const dateContests = getContestsForDate(day);
+                                    const hasContests = dateContests.length > 0;
+
+                                    return (
+                                        <div
+                                            key={idx}
+                                            className={`calendar-day ${!isCurrentMonth ? 'empty' : ''} ${hasContests ? 'has-contest' : ''} ${dateKey === selectedDate ? 'selected' : ''}`}
+                                            onClick={() => isCurrentMonth && handleDateClick(day)}
+                                        >
+                                            <span className="day-number">{day.format('D')}</span>
+                                            {isToday && <div className="today-marker"></div>}
+                                            {hasContests && (
+                                                <div className="contest-indicator">
+                                                    <span className="contest-count">{dateContests.length}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="contests-sidebar">
+                        <div className="contests-section">
+                            <h3>Contests on {moment(selectedDate).format('MMMM D, YYYY')}</h3>
+                            <div className="contests-list">
+                                {getContestsForDate(moment(selectedDate)).length > 0 ? (
+                                    getContestsForDate(moment(selectedDate)).map((contest, idx) => {
+                                        const startTime = moment.unix(contest.startTimeUnix).format('h:mm A');
+                                        const endTime = moment.unix(contest.startTimeUnix + contest.duration * 60).format('h:mm A');
+                                        const durationHours = Math.floor(contest.duration / 60);
+                                        const durationMinutes = contest.duration % 60;
+                                        const timeAndDateURL = generateTimeAndDateURL(contest.startTimeUnix);
+
+                                        return (
+                                            <div key={idx} className="contest-item">
+                                                <h4>
+                                                    <span className="platform-badge">{contest.host}</span>
+                                                    {contest.name}
+                                                </h4>
+                                                <p>
+                                                    <span className="label">Time:</span> {startTime} - {endTime} ({durationHours}h {durationMinutes > 0 ? `${durationMinutes}m` : ''})
+                                                </p>
+                                                <a
+                                                    href={contest.url + "?ref=digitomize&utm_source=digitomize"}
+                                                    className="contest-link"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    Join Contest
+                                                </a>
+                                                <a
+                                                    href={timeAndDateURL}
+                                                    className="contest-link"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    style={{ marginLeft: '8px', background: '#333' }}
+                                                >
+                                                    View in TimeandDate
+                                                </a>
+                                            </div>
+                                        );
+                                    })
+                                ) : (
+                                    <div className="no-contests">No contests scheduled for this day</div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </>
     );
-  }
-
-  return (
-    <div className="calendar-container">
-      <div className="calendar-wrapper">
-        <div className="calendar-section">
-          <div className="calendar-header">
-            <div className="navigation">
-              <button className="nav-button year-nav" onClick={() => navigateYear(-1)}>
-                ‹‹
-              </button>
-              <button className="nav-button" onClick={() => navigateMonth(-1)}>
-                ‹
-              </button>
-              <h2 className="month-year">
-                {months[currentDate.getMonth()]} {currentDate.getFullYear()}
-              </h2>
-              <button className="nav-button" onClick={() => navigateMonth(1)}>
-                ›
-              </button>
-              <button className="nav-button year-nav" onClick={() => navigateYear(1)}>
-                ››
-              </button>
-            </div>
-
-          </div>
-
-          <div className="calendar-grid">
-            <div className="days-header">
-              {daysOfWeek.map(day => (
-                <div key={day} className="day-header">
-                  {day}
-                </div>
-              ))}
-            </div>
-            <div className="days-grid">{renderCalendarDays()}</div>
-          </div>
-        </div>
-
-        <div className="contests-sidebar">
-          <div className="contests-section">
-            <h3>
-              {selectedDateContests.length > 0
-                ? "Selected Date Contests"
-                : "Upcoming Contests"
-              }
-            </h3>
-
-            {loading && <LoadingSpinner />}
-            {error && <div className="error-message">{error}</div>}
-
-            <div className="contests-list">
-              {selectedDateContests.length > 0 ? (
-                selectedDateContests.map(contest => (
-                  <div key={contest.id} className="contest-item">
-                    <h4>
-                      <span
-                        className={`platform-badge platform-${contest.site.toLowerCase()}`}
-                        style={{ backgroundColor: contest.color }}
-                      >
-                        {contest.site}
-                      </span>
-                      {contest.name}
-                      {!contest.verified && <span className="unverified">*</span>}
-                    </h4>
-                    <p>
-                      <span className="label">Start:</span>{" "}
-                      {contest.start_time.toLocaleString()}
-                    </p>
-                    <p>
-                      <span className="label">Duration:</span>{" "}
-                      {Math.floor(contest.duration / 3600)}h {Math.floor((contest.duration % 3600) / 60)}m
-                    </p>
-                    <a
-                      href={contest.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="contest-link"
-                    >
-                      View Contest →
-                    </a>
-                  </div>
-                ))
-              ) : (
-                <div className="upcoming-contests-preview">
-                  {filteredContests.slice(0, 5).map(contest => (
-                    <div key={contest.id} className="contest-item preview">
-                      <h4>
-                        <span
-                          className={`platform-badge platform-${contest.site.toLowerCase()}`}
-                          style={{ backgroundColor: contest.color }}
-                        >
-                          {contest.site}
-                        </span>
-                        {contest.name}
-                        {!contest.verified && <span className="unverified">*</span>}
-                      </h4>
-                      <p>
-                        <span className="label">Start:</span>{" "}
-                        {contest.start_time.toLocaleDateString()} at{" "}
-                        {contest.start_time.toLocaleTimeString()}
-                      </p>
-                      <a
-                        href={contest.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="contest-link"
-                      >
-                        View Contest →
-                      </a>
-                    </div>
-                  ))}
-                  {filteredContests.length === 0 && !loading && (
-                    <div className="no-contests">
-                      No contests found for selected platforms
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {filteredContests.some(c => !c.verified) && (
-              <div className="disclaimer">
-                <small>* Unverified contests are sample data or estimated schedules</small>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 };
 
-// CalendarWithErrorBoundary wrapper
-const CalendarWithErrorBoundary = () => (
-  <CalendarErrorBoundary>
-    <Calendar />
-  </CalendarErrorBoundary>
-);
-
-export default CalendarWithErrorBoundary;
+export default Calendar;
