@@ -177,15 +177,7 @@ const Calendar = () => {
                                                 >
                                                     Join Contest
                                                 </a>
-                                                <a
-                                                    href={timeAndDateURL}
-                                                    className="contest-link"
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    style={{ marginLeft: '8px', background: '#333' }}
-                                                >
-                                                    View in TimeandDate
-                                                </a>
+                                                
                                             </div>
                                         );
                                     })
