@@ -4,6 +4,7 @@ import { useState } from "react";
 import "../styles/Login.css";
 
 function LoginPage() {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
   const [hide, setHide] = useState(true);
   const navigate = useNavigate();
   const togglePassword = () => {
@@ -18,7 +19,7 @@ function LoginPage() {
     form.reset();
     setHide(true);
     try {
-      const response = await fetch(`http://localhost:3000/login/`, {
+      const response = await fetch(`${backendUrl}/login/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

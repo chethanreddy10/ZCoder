@@ -1,12 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useLocation, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import "../styles/rooms.css";
 import io from "socket.io-client";
 import SoloCodeEditor from "../components/SoloCodeEditor";
 
 function RoomPage() {
-  const location = useLocation();
-  const username = location.state?.username;
+  const navigate = useNavigate();
   const { roomId } = useParams();
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
@@ -24,12 +23,14 @@ function RoomPage() {
     if (jwtoken === null || jwtoken === undefined) {
       navigate("/login");
     }
-  });
+  }, [navigate]);
 
   useEffect(() => {
-    socket.current = io("http://localhost:3000");
+    socket.current = io(import.meta.env.VITE_BACKEND_URL || "http://localhost:3000", {
+      auth: { token: localStorage.getItem("jwtoken") },
+    });
 
-    socket.current.emit("join-room", { roomId, username });
+    socket.current.emit("join-room", { roomId });
 
     // Add these listeners
     socket.current.on("user-joined", (username) => {
@@ -61,21 +62,17 @@ function RoomPage() {
     );
 
     socket.current.on("text-edit", (text) => {
-      if (text !== sharedText) {
-        setSharedText(text);
-      }
+      setSharedText(text);
     });
 
     socket.current.on("input-edit", (input) => {
-      if (input !== sharedInput) {
-        setSharedInput(input);
-      }
+      setSharedInput(input);
     });
 
     return () => {
       socket.current.disconnect();
     };
-  }, [username, roomId]);
+  }, [roomId]);
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
@@ -103,7 +100,6 @@ function RoomPage() {
       socket.current.emit("send-msg", {
         roomId,
         message,
-        username,
       });
       setMessage("");
     }

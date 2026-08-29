@@ -4,6 +4,7 @@ import axios from "axios";
 import ProbCodeEditor from "../components/ProbCodeEditor";
 import "../styles/ProblemDetail.css";
 import { Bookmark, BookmarkCheck } from "lucide-react";
+import { sanitizeProblemHtml } from "../lib/sanitizeHtml";
 
 const ProblemDetail = () => {
   const { titleSlug } = useParams();
@@ -13,14 +14,15 @@ const ProblemDetail = () => {
   const [error, setError] = useState(null);
   const [code, setCode] = useState("");
   const [input, setInput] = useState("");
+  const [language, setLanguage] = useState("cpp");
   const [submissionResult, setSubmissionResult] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [submissionError, setSubmissionError] = useState(null);
   const [isResizing, setIsResizing] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(50); // Track width as percentage
 
   const backend = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
-  const LEETCODE_API = `https://leetcode-api-mu.vercel.app/select?titleSlug=${titleSlug}`;
 
   useEffect(() => {
     const jwtoken = localStorage.getItem("jwtoken");
@@ -30,7 +32,7 @@ const ProblemDetail = () => {
   useEffect(() => {
     async function fetchProblem() {
       try {
-        const res = await axios.get(LEETCODE_API);
+        const res = await axios.get(`https://leetcode-api-mu.vercel.app/select?titleSlug=${titleSlug}`);
         setData(res.data);
       } catch (err) {
         setError(err.message);
@@ -48,7 +50,7 @@ const ProblemDetail = () => {
         const res = await axios.get(`${backend}/bookmarks`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setIsBookmarked(res.data.bookmarks.includes(titleSlug));
+        setIsBookmarked(res.data?.bookmarks?.includes(titleSlug) ?? false);
       } catch (err) {
         console.error("Error checking bookmark:", err);
       }
@@ -100,6 +102,7 @@ const ProblemDetail = () => {
   const handleSubmit = async () => {
     if (!code) return;
     setIsSubmitting(true);
+    setSubmissionError(null);
     try {
       const token = localStorage.getItem("jwtoken");
       if (!token) throw new Error("No authentication token found. Please login.");
@@ -108,7 +111,7 @@ const ProblemDetail = () => {
         {
           problemSlug: titleSlug,
           code,
-          language: "javascript",
+          language,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -116,7 +119,7 @@ const ProblemDetail = () => {
       );
       setSubmissionResult(response.data);
     } catch (err) {
-      setError(err.response?.data?.message || err.message);
+      setSubmissionError(err.response?.data?.message || err.message);
       if (err.response?.status === 401) navigate("/login");
     } finally {
       setIsSubmitting(false);
@@ -185,7 +188,7 @@ const ProblemDetail = () => {
 
               <div
                 className="question-content"
-                dangerouslySetInnerHTML={{ __html: data.question }}
+                dangerouslySetInnerHTML={{ __html: sanitizeProblemHtml(data.question) }}
               />
 
               <h3 className="sample-tests-title">Sample Test Cases</h3>
@@ -214,6 +217,8 @@ const ProblemDetail = () => {
             onChange={setCode}
             inputValue={input}
             onInputChange={setInput}
+            language={language}
+            onLanguageChange={setLanguage}
           />
 
           <div className="action-buttons">
@@ -224,14 +229,15 @@ const ProblemDetail = () => {
             >
               {isSubmitting ? "Submitting..." : "Submit"}
             </button>
-            {/* 
-            <button className="discussions-button" onClick={handleViewDiscussions}>
-              Discussions
-            </button> */}
+                      {submissionError && (
+            <div className="submission-result error">
+              <p>{submissionError}</p>
+            </div>
+          )}
           </div>
 
           {submissionResult && (
-            <div className={`submission-result ${submissionResult.passed ? "success" : "error"}`}>
+            <div className={`submission-result ${submissionResult.passed === false ? "error" : "success"}`}>
               <h3>Result</h3>
               <p>{submissionResult.message}</p>
               {submissionResult.details && <pre>{submissionResult.details}</pre>}

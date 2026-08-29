@@ -5,6 +5,7 @@ import EditProfile from '../components/EditProfile';
 import Toast from '../components/Toast';
 
 const UserProfile = () => {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
   const [userData, setUserData] = useState({
     name: '',
@@ -25,20 +26,14 @@ const UserProfile = () => {
   const [toastMessage, setToastMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
 
-  // Auto-dismiss toast after 3 seconds
-  useEffect(() => {
-    if (showToast) {
-      const timer = setTimeout(() => setShowToast(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [showToast]);
+
 
   // Fetch user profile data
   useEffect(() => {
     const fetchUserData = async () => {
       const jwtoken = localStorage.getItem('jwtoken');
       try {
-        const res = await fetch('http://localhost:3000/user/profile', {
+        const res = await fetch(`${backendUrl}/user/profile`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${jwtoken}`
@@ -76,7 +71,7 @@ const UserProfile = () => {
     };
 
     fetchUserData();
-  }, []);
+  }, [backendUrl]);
 
   // Fetch Codeforces info
   const fetchCodeforcesInfo = async (handle) => {
@@ -84,7 +79,7 @@ const UserProfile = () => {
       const res = await fetch(`https://competeapi.vercel.app/user/codeforces/${handle}/`);
       const data = await res.json();
       setCfInfo(Array.isArray(data) ? data[0] : data);
-    } catch (error) {
+    } catch {
       setCfInfo(null);
     }
   };
@@ -96,13 +91,26 @@ const UserProfile = () => {
   const handleProfileUpdate = async (updatedData) => {
     try {
       const jwtoken = localStorage.getItem('jwtoken');
-      const res = await fetch('http://localhost:3000/user/profile/update', {
+      if (updatedData.newPassword) {
+        if (updatedData.newPassword !== updatedData.confirmPassword) throw new Error("New passwords do not match");
+        const passwordRes = await fetch(`${backendUrl}/user/profile/update-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtoken}` },
+          body: JSON.stringify({ currentPassword: updatedData.currentPassword, newPassword: updatedData.newPassword }),
+        });
+        if (!passwordRes.ok) throw new Error((await passwordRes.json()).error || 'Failed to update password');
+      }
+      const profileData = { ...updatedData };
+      delete profileData.currentPassword;
+      delete profileData.newPassword;
+      delete profileData.confirmPassword;
+      const res = await fetch(`${backendUrl}/user/profile/update`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtoken}`,
         },
-        body: JSON.stringify(updatedData),
+        body: JSON.stringify(profileData),
       });
       if (!res.ok) throw new Error('Failed to update profile');
       const data = await res.json();
@@ -127,7 +135,7 @@ const UserProfile = () => {
         fetchCodeforcesInfo(receivedData.codeforcesHandle);
       }
     } catch (error) {
-      setToastMessage('Failed to update profile. Please try again.');
+      setToastMessage(error.message || 'Failed to update profile. Please try again.');
       setShowToast(true);
     }
   };

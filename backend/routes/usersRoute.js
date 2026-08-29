@@ -3,6 +3,7 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/UserModel");
 const mongoose = require("mongoose");
+const { escapeRegex } = require("../utils/validation");
 
 router.use(bodyParser.json({ limit: "100mb" }));
 
@@ -13,8 +14,8 @@ router.get("/:username", async (req, res) => {
   }
   try {
     const usersList = await User.find({
-      Username: { $regex: `^${username}`, $options: "i" },
-    }).select("_id Username profilePicture"); // Only select _id and Username fields
+      Username: { $regex: `^${escapeRegex(username.trim())}`, $options: "i" },
+    }).select("_id Username profilePicture").limit(10);
 
     if (usersList && usersList.length > 0) {
       // Map to return array of objects with id and username
@@ -25,7 +26,7 @@ router.get("/:username", async (req, res) => {
       }));
       res.status(200).send(result);
     } else {
-      res.status(404).send("No users found!");
+      res.status(200).send([]);
     }
   } catch (err) {
     res.status(500).send("Server error");

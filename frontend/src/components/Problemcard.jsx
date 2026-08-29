@@ -4,7 +4,6 @@ import { Bookmark, BookmarkCheck } from "lucide-react";
 import "./Problemcard.css";
 
 const ProblemCard = ({
-  id,
   title,
   platform,
   difficulty,
@@ -15,12 +14,13 @@ const ProblemCard = ({
   titleSlug,
   onBookmarkToggle //NEW function props.
 }) => {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
   const [isBookmarked, setIsBookmarked] = useState(false);
 
   useEffect(() => {
     const checkBookmark = async () => {
       try {
-        const response = await axios.get("http://localhost:3000/bookmarks", {
+        const response = await axios.get(`${backendUrl}/bookmarks`, {
           headers: { Authorization: `Bearer ${localStorage.getItem("jwtoken")}` },
         });
         setIsBookmarked(response.data.bookmarks.includes(titleSlug));
@@ -29,13 +29,13 @@ const ProblemCard = ({
       }
     };
     checkBookmark();
-  }, [titleSlug]);
+  }, [titleSlug, backendUrl]);
 
   const toggleBookmark = async (e) => {
     e.stopPropagation();
     try {
       await axios.post(
-        "http://localhost:3000/bookmarks/toggle",
+        `${backendUrl}/bookmarks/toggle`,
         { problemSlug: titleSlug },
         { headers: { Authorization: `Bearer ${localStorage.getItem("jwtoken")}` } }
       );
@@ -80,7 +80,7 @@ const ProblemCard = ({
         >
           {difficulty}
         </span>
-        <span className="accuracy">Accuracy: {Accuracy.toFixed(2)}%</span>
+        <span className="accuracy">Accuracy: {(Accuracy ?? 0).toFixed(2)}%</span>
       </div>
 
       {tags && tags.length > 0 && (

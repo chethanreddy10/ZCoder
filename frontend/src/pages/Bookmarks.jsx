@@ -79,6 +79,7 @@ const STATIC_TAGS = [
 ];
 
 function Bookmarks() {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
   const navigate = useNavigate();
   const [problems, setProblems] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -119,7 +120,7 @@ function Bookmarks() {
     async function fetchBookmarks() {
       setIsLoading(true);
       try {
-        const response = await fetch("http://localhost:3000/bookmarks", {
+        const response = await fetch(`${backendUrl}/bookmarks`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -143,7 +144,7 @@ function Bookmarks() {
       }
     }
     fetchBookmarks();
-  }, []);
+  }, [backendUrl]);
 
   useEffect(() => {
     // Redirect to the login page if the user is not authenticated
