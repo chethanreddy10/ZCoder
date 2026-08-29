@@ -15,7 +15,8 @@ const Calendar = () => {
     useEffect(() => {
         const fetchContests = async () => {
             try {
-                const { data } = await axios.get("https://api.digitomize.com/contests");
+                const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+                const { data } = await axios.get(`${backendUrl}/api/contests`);
                 setContests(data.results);
                 setLoading(false);
             } catch (err) {
@@ -57,31 +58,6 @@ const Calendar = () => {
 
     const handleDateClick = (date) => {
         setSelectedDate(date.format('YYYY-MM-DD'));
-    };
-
-    const generateTimeAndDateURL = (startTimeUnix) => {
-        const utcDateAndTime = moment.tz(startTimeUnix * 1000, "UTC");
-        const utcStartMonth = utcDateAndTime.format("MM");
-        const utcStartDate = utcDateAndTime.format("DD");
-        const utcStartYear = utcDateAndTime.format("YYYY");
-        const utcStartTime = utcDateAndTime.format("HH:mm:ss");
-        const utcStartHour = utcStartTime.split(":")[0];
-        const utcStartMin = utcStartTime.split(":")[1];
-        const utcStartSec = utcStartTime.split(":")[2];
-
-        const timeAndDateURL = new URL("https://timeanddate.com/worldclock/fixedtime.html");
-        const params = {
-            day: utcStartDate,
-            month: utcStartMonth,
-            year: utcStartYear,
-            hour: utcStartHour,
-            min: utcStartMin,
-            sec: utcStartSec,
-            p1: 1440, // UTC
-        };
-
-        timeAndDateURL.search = new URLSearchParams(params).toString();
-        return timeAndDateURL.href;
     };
 
     if (loading) {
@@ -158,7 +134,6 @@ const Calendar = () => {
                                         const endTime = moment.unix(contest.startTimeUnix + contest.duration * 60).format('h:mm A');
                                         const durationHours = Math.floor(contest.duration / 60);
                                         const durationMinutes = contest.duration % 60;
-                                        const timeAndDateURL = generateTimeAndDateURL(contest.startTimeUnix);
 
                                         return (
                                             <div key={idx} className="contest-item">

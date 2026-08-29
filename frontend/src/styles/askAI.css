@@ -1,151 +1,413 @@
+/* ── Container ── */
 .ask-ai-container {
   width: 90vw;
+  max-width: 900px;
   margin: 0 auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: 88vh;
+  background: var(--primary-background);
+  color: var(--text-primary);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* ── Header ── */
+.ai-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: var(--secondary-background);
+  border-bottom: 1px solid rgba(98, 70, 234, 0.1);
+  flex-shrink: 0;
+}
+
+.ai-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ai-avatar {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.ai-header h1 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.ai-subtitle {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  margin: 0;
+}
+
+.clear-chat-btn {
+  background: transparent;
+  border: 1px solid rgba(98, 70, 234, 0.2);
+  color: var(--text-primary);
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+
+.clear-chat-btn:hover {
+  background: var(--primary-accent);
+  color: #fff;
+  border-color: var(--primary-accent);
+}
+
+/* ── Conversation Area ── */
+.conversation {
+  flex: 1;
+  overflow-y: auto;
   padding: 20px;
   display: flex;
   flex-direction: column;
-  height: 90vh;
-  background-color: var(--primary-background);
-  color: var(--text-primary);
-  font-family: 'Poppins', sans-serif;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(98, 70, 234, 0.15);
+  gap: 16px;
+  scroll-behavior: smooth;
 }
 
-.ask-ai-container .conversation {
-  flex: 1;
-  overflow-y: auto;
-  margin-bottom: 20px;
-  padding: 15px;
-  background: var(--secondary-background);
-  border-radius: 12px;
-  box-shadow: inset 0 0 10px rgba(98, 70, 234, 0.1);
-}
-
-.ask-ai-container .message {
-  margin-bottom: 15px;
+/* ── Empty State ── */
+.empty-state {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  text-align: center;
+  gap: 8px;
+  opacity: 0.8;
 }
 
-.ask-ai-container .message.user {
-  justify-content: flex-end;
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 4px;
 }
 
-.ask-ai-container .message.ai {
-  justify-content: flex-start;
+.empty-state h3 {
+  font-size: 1.3rem;
+  margin: 0;
 }
 
-.ask-ai-container .message-content {
-  max-width: 70%;
-  padding: 12px 18px;
-  border-radius: 18px;
-  word-wrap: break-word;
-  font-size: 1rem;
-  line-height: 1.5;
-  box-shadow: 0 4px 8px rgba(98, 70, 234, 0.15);
+.empty-state p {
+  font-size: 0.9rem;
+  opacity: 0.6;
+  margin: 0 0 12px;
 }
 
-.ask-ai-container .user .message-content {
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  max-width: 600px;
+}
+
+.suggestion-chip {
+  background: var(--secondary-background);
+  border: 1px solid rgba(98, 70, 234, 0.15);
+  color: var(--text-primary);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.suggestion-chip:hover {
   background: var(--primary-accent);
   color: #fff;
-  border-top-right-radius: 0;
+  border-color: var(--primary-accent);
+  transform: translateY(-1px);
 }
 
-.ask-ai-container .ai .message-content {
-  background: var(--tertiary-background);
-  color: var(--text-tertiary);
-  border: 1px solid rgba(98, 70, 234, 0.1);
-  border-top-left-radius: 0;
-}
-
-.ask-ai-container .loading {
-  color: var(--secondary-accent);
-  font-style: italic;
-  text-align: center;
-}
-
-.ask-ai-container .message-form {
+/* ── Message Bubbles ── */
+.message {
   display: flex;
   gap: 10px;
+  max-width: 85%;
 }
 
-.ask-ai-container .message-form input {
-  flex: 1;
-  padding: 12px;
-  border: 2px solid var(--primary-accent);
+.message.user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.message.ai {
+  align-self: flex-start;
+}
+
+.msg-avatar {
+  font-size: 1.4rem;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.message-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.message.user .message-bubble {
+  align-items: flex-end;
+}
+
+.message.user .markdown-content {
+  background: var(--primary-accent);
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: 18px 18px 4px 18px;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.message.ai .markdown-content {
+  background: var(--secondary-background);
+  color: var(--text-primary);
+  padding: 12px 18px;
+  border-radius: 18px 18px 18px 4px;
+  border: 1px solid rgba(98, 70, 234, 0.08);
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+.message-time {
+  font-size: 0.7rem;
+  opacity: 0.4;
+  padding: 0 4px;
+}
+
+/* ── Markdown Content Styling ── */
+.markdown-content p {
+  margin: 0 0 10px;
+}
+
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+  margin: 16px 0 8px;
+  line-height: 1.3;
+}
+
+.markdown-content h1 { font-size: 1.2rem; }
+.markdown-content h2 { font-size: 1.1rem; }
+.markdown-content h3 { font-size: 1rem; }
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 22px;
+  margin: 8px 0;
+}
+
+.markdown-content li {
+  margin-bottom: 4px;
+}
+
+.markdown-content strong {
+  font-weight: 700;
+  color: var(--highlight, var(--primary-accent));
+}
+
+.markdown-content a {
+  color: var(--primary-accent);
+  text-decoration: underline;
+}
+
+/* ── Inline Code ── */
+.markdown-content .inline-code {
+  background: rgba(98, 70, 234, 0.1);
+  color: var(--highlight, var(--primary-accent));
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Roboto Mono', 'Fira Code', monospace;
+  font-size: 0.88em;
+  word-break: break-word;
+}
+
+/* ── Code Blocks ── */
+.markdown-content .code-block {
+  margin: 12px 0;
   border-radius: 10px;
-  background: var(--tertiary-background);
-  color: var(--text-tertiary);
-  font-size: 1rem;
-  transition: border 0.3s, background 0.3s;
+  overflow: hidden;
+  border: 1px solid rgba(98, 70, 234, 0.12);
 }
 
-.ask-ai-container .message-form input:focus {
-  border-color: var(--secondary-accent);
+.markdown-content .code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: rgba(98, 70, 234, 0.08);
+  font-size: 0.75rem;
+}
+
+.markdown-content .code-lang {
+  font-weight: 600;
+  text-transform: uppercase;
+  opacity: 0.7;
+  letter-spacing: 0.5px;
+}
+
+.markdown-content .copy-btn {
+  background: transparent;
+  border: 1px solid rgba(98, 70, 234, 0.2);
+  color: var(--text-primary);
+  padding: 2px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.72rem;
+  transition: all 0.2s;
+}
+
+.markdown-content .copy-btn:hover {
+  background: var(--primary-accent);
+  color: #fff;
+}
+
+.markdown-content .code-block pre {
+  margin: 0;
+  padding: 14px 16px;
+  background: rgba(0, 0, 0, 0.04);
+  overflow-x: auto;
+}
+
+.markdown-content .code-block pre code {
+  font-family: 'Roboto Mono', 'Fira Code', monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  background: transparent;
+  padding: 0;
+}
+
+/* ── Typing Indicator ── */
+.typing-indicator {
+  display: flex;
+  gap: 5px;
+  padding: 14px 18px;
+  background: var(--secondary-background);
+  border-radius: 18px 18px 18px 4px;
+  border: 1px solid rgba(98, 70, 234, 0.08);
+}
+
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  background: var(--primary-accent);
+  border-radius: 50%;
+  opacity: 0.4;
+  animation: typing-bounce 1.2s infinite;
+}
+
+.typing-indicator span:nth-child(2) { animation-delay: 0.15s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
+
+/* ── Input Form ── */
+.message-form {
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px;
+  background: var(--secondary-background);
+  border-top: 1px solid rgba(98, 70, 234, 0.08);
+  flex-shrink: 0;
+}
+
+.message-form input {
+  flex: 1;
+  padding: 12px 18px;
+  border: 2px solid transparent;
+  border-radius: 12px;
   background: var(--primary-background);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.message-form input:focus {
+  border-color: var(--primary-accent);
   outline: none;
   box-shadow: 0 0 0 3px rgba(98, 70, 234, 0.1);
 }
 
-.ask-ai-container .message-form button {
-  padding: 12px 20px;
+.message-form input:disabled {
+  opacity: 0.6;
+}
+
+.message-form button {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--primary-accent);
-  color: white;
+  color: #fff;
   border: none;
-  border-radius: 10px;
-  font-weight: 600;
+  border-radius: 12px;
+  font-size: 1.2rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: background 0.3s, transform 0.2s;
+  transition: all 0.2s;
+  flex-shrink: 0;
 }
 
-.ask-ai-container .message-form button:hover {
+.message-form button:hover:not(:disabled) {
   background: var(--secondary-accent);
-  transform: translateY(-2px);
+  transform: scale(1.05);
 }
 
-.ask-ai-container .message-form button:disabled {
+.message-form button:disabled {
   background: var(--secondary-background);
   color: var(--text-secondary);
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
-/* Markdown Styling */
-.ask-ai-container .react-markdown code {
-  background-color: var(--secondary-background);
-  padding: 4px 6px;
-  border-radius: 4px;
-  color: var(--highlight);
-  font-family: 'Roboto Mono', monospace;
+/* ── Send Spinner ── */
+.send-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
 }
 
-.ask-ai-container .react-markdown pre {
-  background-color: var(--tertiary-background);
-  border: 1px solid var(--secondary-background);
-  padding: 14px;
-  border-radius: 10px;
-  overflow-x: auto;
-  color: var(--text-tertiary);
-  font-family: 'Roboto Mono', monospace;
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
-.ask-ai-container .react-markdown pre code {
-  background-color: transparent;
-  padding: 0;
-  color: var(--text-tertiary);
+/* ── Scrollbar ── */
+.conversation::-webkit-scrollbar {
+  width: 6px;
 }
 
-.ask-ai-container .react-markdown ul,
-.ask-ai-container .react-markdown ol {
-  padding-left: 20px;
-  margin: 10px 0;
+.conversation::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.ask-ai-container .react-markdown li {
-  margin-bottom: 6px;
-}
-
-.ask-ai-container .react-markdown strong {
-  font-weight: bold;
-  color: var(--highlight);
+.conversation::-webkit-scrollbar-thumb {
+  background: var(--primary-accent);
+  border-radius: 3px;
+  opacity: 0.5;
 }

@@ -1,5 +1,5 @@
 // middleware/auth.js
-const jwt = require('jsonwebtoken');
+const { verifyToken } = require("../config/auth");
 
 const auth = async (req, res, next) => {
     try {
@@ -11,7 +11,7 @@ const auth = async (req, res, next) => {
         }
 
         // Verify token
-        const decoded = jwt.verify(token,"MY_SECRET_TOKEN");
+        const decoded = verifyToken(token);
         
         // Attach user to request
         req.user = decoded;

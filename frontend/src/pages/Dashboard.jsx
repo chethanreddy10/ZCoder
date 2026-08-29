@@ -109,7 +109,7 @@ function Dashboard() {
 
   // below 6 useeffects.
   // Save to localStorage on state changes
-  //so user can still have acccess to his recent 
+  //so user can still have acccess to his recent if he came back from another page.
   //filters.
   useEffect(() => {
     localStorage.setItem('selectedTags', JSON.stringify(selectedTags));

@@ -143,23 +143,33 @@ router.use(bodyParser.json({ limit: "100mb" }));
 router.post("/profile/update", auth, async (req, res) => {
   try {
     const userId = req.user.user_id || req.user._id;
+    const allowedFields = ["name", "email", "phoneNumber", "profilePicture", "role", "location", "codeforcesHandle", "programmingLanguages", "skills", "degrees", "experience", "languages"];
+    const updates = Object.fromEntries(Object.entries(req.body).filter(([key]) => allowedFields.includes(key)));
+    if (typeof updates.email === "string") updates.email = updates.email.trim().toLowerCase();
+    if (typeof updates.profilePicture === "string" && updates.profilePicture.length > 500_000) {
+      return res.status(400).json({ error: "Profile picture is too large" });
+    }
 
     // Update all fields at once using findByIdAndUpdate
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { $set: req.body }, // Update all fields sent in request body
-      { new: true, runValidators: true } // Return updated doc and validate data
+      { $set: updates },
+      { new: true, runValidators: true, projection: "-HashedPassword -__v" }
     );
 
     if (!updatedUser) {
       return res.status(404).json({ error: "User not found" });
     }
 
+    const safeUser = updatedUser.toObject();
+    delete safeUser.HashedPassword;
+
     res.status(200).json({
       message: "Profile updated successfully",
-      user: updatedUser // Return complete updated user data
+      user: safeUser
     });
   } catch (err) {
+    if (err?.code === 11000) return res.status(409).json({ error: "Email already exists" });
     console.error("Update error:", err);
     res.status(500).json({ error: "Failed to update profile" });
   }
@@ -186,7 +196,7 @@ router.get("/profile", auth, async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const user = await User.findById(req.params.id)
-      .select("-HashedPassword -__v -createdAt -updatedAt");
+      .select("Username name profilePicture role location codeforcesHandle programmingLanguages skills degrees experience languages");
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -203,9 +213,12 @@ router.get("/:id", async (req, res) => {
 router.post("/profile/update-password", auth, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
+    if (typeof currentPassword !== "string" || typeof newPassword !== "string" || newPassword.length < 8) {
+      return res.status(400).json({ error: "A current password and a new password of at least 8 characters are required" });
+    }
     const userId = req.user.user_id || req.user._id;
 
-    const dbUser = await User.findById(userId);
+    const dbUser = await User.findById(userId).select("+HashedPassword");
     if (!dbUser) {
       return res.status(404).json({ error: "User not found" });
     }

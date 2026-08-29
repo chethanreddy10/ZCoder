@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 
 function RegisterPage() {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
   const [hide, setHide] = useState(true);
   const navigate = useNavigate();
   const togglePassword = () => {
@@ -19,7 +20,7 @@ function RegisterPage() {
     form.reset();
     setHide(true);
     try {
-      const response = await fetch('http://localhost:3000/register/', {
+      const response = await fetch(`${backendUrl}/register/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

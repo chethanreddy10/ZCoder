@@ -6,7 +6,7 @@ const auth = require('../middleware/auth');
 router.get('/', auth, async (req, res) => {
     try {
         const bookmarks = await Bookmarks.findOne({username: req.user.username});
-        res.status(200).json(bookmarks);
+        res.status(200).json(bookmarks || { username: req.user.username, bookmarks: [] });
     } catch (error) {
         console.error("Error fetching bookmarks:", error);
         res.status(500).json({ message: "Internal server error" });
@@ -17,6 +17,7 @@ router.post('/toggle', auth, async (req, res) => {
   try {
     const { problemSlug } = req.body;
     const username = req.user.username;
+    if (!require("../utils/validation").isValidProblemSlug(problemSlug)) return res.status(400).json({ message: "Invalid problem slug" });
 
     let userBookmarks = await Bookmarks.findOne({ username });
 

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 
-const EditProfile = ({ userData, onUpdate, showToast }) => {
+const EditProfile = ({ userData, onUpdate }) => {
   // Initialize form data with user info or defaults
   const [formData, setFormData] = useState({
     name: '',

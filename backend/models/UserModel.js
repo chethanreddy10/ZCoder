@@ -4,11 +4,11 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
 const userSchema = new Schema({
-  Username: String,
-  HashedPassword: String,
+  Username: { type: String, required: true, unique: true, trim: true, maxlength: 50 },
+  HashedPassword: { type: String, required: true, select: false },
   codeforcesHandle: String,
   codeforcesRating: String,
-  email: String,
+  email: { type: String, required: true, unique: true, trim: true, lowercase: true },
   name: String,
   phoneNumber: String,
   profilePicture: String,

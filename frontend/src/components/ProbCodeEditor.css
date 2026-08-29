@@ -489,3 +489,24 @@
   background-color: #d4d4d4;
   color: #333;
 }
+
+/* Execution stats */
+.output-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.exec-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.exec-stats .stat {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}

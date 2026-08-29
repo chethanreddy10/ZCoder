@@ -22,6 +22,10 @@ const SolutionSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  voterChoices: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    value: { type: Number, enum: [-1, 1], required: true },
+  }],
   createdAt: {
     type: Date,
     default: Date.now,

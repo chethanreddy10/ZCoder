@@ -14,32 +14,32 @@ const profileRoute = require("./routes/Profile.js");
 const socketHandler = require("./socketHandler");
 const bookmarksRoute = require("./routes/Bookmarks.js");
 const usersRoute = require("./routes/usersRoute.js");
+const executeRoute = require("./routes/execute.js");
+const contestsRoute = require("./routes/contests.js");
 const User = require("./models/UserModel.js");
-const bodyParser = require("body-parser");
+const { verifyToken } = require("./config/auth");
 require("dotenv").config();
 
-// Connect to MongoDB
-connectDB();
-
 const app = express();
-app.use(bodyParser.json({ limit: "100mb" }));
+const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173").split(",");
+app.use(express.json({ limit: "1mb" }));
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "*",
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
   },
 });
 
 app.use(
   cors({
-    origin: "*",
+    origin: allowedOrigins,
   })
 );
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Headers", "Authorization, Content-Type");
   next();
 });
-app.use(express.json());
 
 // routes
 app.use("/api", aiRoute);
@@ -48,6 +48,8 @@ app.use("/api/solutions", solutionsRoute);
 app.use("/user", profileRoute);
 app.use("/bookmarks", bookmarksRoute);
 app.use("/users", usersRoute);
+app.use("/api", executeRoute);
+app.use("/api", contestsRoute);
 // app.get("/users/:username", async (req, res) => {
 //   const { username } = req.params;
 //   if (!username || username.trim() === "") {
@@ -74,11 +76,32 @@ app.use("/users", usersRoute);
 //   }
 // });
 app.get("/ping", (req, res) => {
-  console.log(process.env.GROQ_API_KEY);
   res.json({ msg: "API is working !!" });
+});
+
+io.use((socket, next) => {
+  try {
+    const token = socket.handshake.auth?.token;
+    if (!token) return next(new Error("Authentication required"));
+    socket.data.user = verifyToken(token);
+    next();
+  } catch {
+    next(new Error("Invalid authentication token"));
+  }
 });
 
 socketHandler(io);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+async function start() {
+  try {
+    await connectDB();
+    server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  } catch {
+    console.error("Server was not started because MongoDB is unavailable.");
+    process.exit(1);
+  }
+}
+
+start();

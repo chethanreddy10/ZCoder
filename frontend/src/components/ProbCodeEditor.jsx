@@ -1,17 +1,26 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Editor from "@monaco-editor/react";
 import axios from "axios";
-import { LANGUAGE_VERSIONS, CODE_SNIPPETS } from "./constants";
+import { COMPILER_IDS, CODE_SNIPPETS } from "./constants";
 import LanguageSelector from "./LanguageSelector";
 import "./ProbCodeEditor.css";
+
+// Execution timeout in milliseconds (30 seconds)
+const EXECUTION_TIMEOUT = 30000;
+// Max retries before giving up
+const MAX_RETRIES = 2;
 
 export default function ProbCodeEditor({
   value,
   onChange,
   inputValue,
   onInputChange,
+  language: controlledLanguage,
+  onLanguageChange,
 }) {
-  const [language, setLanguage] = useState("cpp");
+  const [uncontrolledLanguage, setUncontrolledLanguage] = useState("cpp");
+  const language = controlledLanguage || uncontrolledLanguage;
+  const setLanguage = onLanguageChange || setUncontrolledLanguage;
   const [output, setOutput] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const [currentLine, setCurrentLine] = useState(1);
@@ -22,6 +31,7 @@ export default function ProbCodeEditor({
   const [showSnippets, setShowSnippets] = useState(false);
   const [theme, setTheme] = useState("light");
   const [fontSize, setFontSize] = useState(14);
+  const [execStats, setExecStats] = useState(null);
   const editorRef = useRef(null);
 
   // Load saved data from localStorage
@@ -52,11 +62,13 @@ export default function ProbCodeEditor({
     localStorage.setItem("editorFontSize", fontSize.toString());
   }, [fontSize]);
 
-  // Set default snippet when language changes
+  // Set default snippet when language changes (not on re-renders)
+  const prevLanguageRef = useRef(null);
   useEffect(() => {
-    if (CODE_SNIPPETS[language]) {
+    if (prevLanguageRef.current !== language && CODE_SNIPPETS[language]) {
       onChange(CODE_SNIPPETS[language]);
     }
+    prevLanguageRef.current = language;
   }, [language, onChange]);
 
   const runCode = useCallback(async () => {
@@ -67,26 +79,73 @@ export default function ProbCodeEditor({
 
     setIsRunning(true);
     setOutput("Running...");
-    
-    try {
-      const response = await axios.post(import.meta.env.VITE_JUDGE, {
-        language,
-        version: LANGUAGE_VERSIONS[language],
-        files: [{ content: value.trim() }],
-        stdin: inputValue,
-      });
+    setExecStats(null);
 
-      const result = response.data.run.output || "No output";
-      setOutput(result);
-    } catch (err) {
-      const errorMsg = err.response?.data?.message || 
-                      err.response?.data?.compile?.output ||
-                      err.message ||
-                      "Error running code";
-      setOutput(`Error: ${errorMsg}`);
-    } finally {
-      setIsRunning(false);
+    const code = value.trim();
+    let lastError = null;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        const delay = Math.pow(2, attempt - 1) * 1000;
+        setOutput(`Retrying... (attempt ${attempt + 1}/${MAX_RETRIES + 1})`);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), EXECUTION_TIMEOUT);
+
+      try {
+        const response = await axios.post(
+          "/api/execute",
+          {
+            compiler: COMPILER_IDS[language],
+            code,
+            input: inputValue,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("jwtoken")}`,
+              "Content-Type": "application/json",
+            },
+            signal: controller.signal,
+          }
+        );
+
+        clearTimeout(timeoutId);
+        const data = response.data;
+
+        setExecStats({
+          time: data.time ? `${parseFloat(data.time).toFixed(3)}s` : null,
+          memory: data.memory ? `${Math.round(parseInt(data.memory) / 1024)} MB` : null,
+        });
+
+        if (data.status === "success") {
+          setOutput(data.output || "No output");
+        } else {
+          setOutput(`Error:\n${data.error || data.output || "Unknown error"}`);
+        }
+        setIsRunning(false);
+        return;
+      } catch (err) {
+        clearTimeout(timeoutId);
+        lastError = err;
+
+        const status = err.response?.status;
+        if (status === 401 || status === 403 || status === 429) {
+          break;
+        }
+      }
     }
+
+    const errorMsg =
+      lastError?.response?.data?.error ||
+      lastError?.response?.data?.message ||
+      lastError?.name === "AbortError"
+        ? "Request timed out (30s limit)"
+        : lastError?.message ||
+          "Code execution failed";
+    setOutput(`Error: ${errorMsg}`);
+    setIsRunning(false);
   }, [value, inputValue, language]);
 
   const handleSaveSnippet = useCallback(() => {
@@ -114,7 +173,7 @@ export default function ProbCodeEditor({
     onInputChange(snippet.input);
     setLanguage(snippet.language);
     setShowSnippets(false);
-  }, [onChange, onInputChange]);
+  }, [onChange, onInputChange, setLanguage]);
 
   const deleteSnippet = useCallback((id) => {
     if (window.confirm("Are you sure you want to delete this snippet?")) {
@@ -124,12 +183,12 @@ export default function ProbCodeEditor({
 
   const clearOutput = useCallback(() => {
     setOutput("");
+    setExecStats(null);
   }, []);
 
   const handleEditorMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
     
-    // Add keyboard shortcuts
     editor.addAction({
       id: "run-code",
       label: "Run Code",
@@ -137,13 +196,11 @@ export default function ProbCodeEditor({
       run: runCode,
     });
 
-    // Track cursor position
     editor.onDidChangeCursorPosition((e) => {
       setCurrentLine(e.position.lineNumber);
       setCurrentColumn(e.position.column);
     });
 
-    // Force editor to focus and ensure cursor is visible
     setTimeout(() => {
       editor.focus();
       editor.setPosition({ lineNumber: 1, column: 1 });
@@ -296,13 +353,11 @@ export default function ProbCodeEditor({
             renderWhitespace: "boundary",
             trimAutoWhitespace: true,
             bracketPairColorization: { enabled: true },
-            // Fixed cursor options
             cursorBlinking: "blink",
             cursorSmoothCaretAnimation: "off",
             cursorStyle: "line",
             cursorWidth: 2,
             hideCursorInOverviewRuler: false,
-            // Better scrolling and rendering
             smoothScrolling: false,
             lineNumbers: "on",
             glyphMargin: true,
@@ -313,7 +368,6 @@ export default function ProbCodeEditor({
             lineNumbersMinChars: 3,
             renderLineHighlight: "line",
             cursorSurroundingLines: 3,
-            // Fixed suggestion options
             suggest: {
               preview: true,
               showIcons: true,
@@ -332,28 +386,23 @@ export default function ProbCodeEditor({
             suggestOnTriggerCharacters: true,
             acceptSuggestionOnEnter: "on",
             acceptSuggestionOnCommitCharacter: true,
-            // Better selection and highlighting
             selectionHighlight: true,
             occurrencesHighlight: true,
             overviewRulerLanes: 2,
             fixedOverflowWidgets: false,
             padding: { top: 10, bottom: 10 },
-            // Auto features
             autoClosingBrackets: "always",
             autoClosingQuotes: "always",
             autoIndent: "full",
             formatOnType: true,
             formatOnPaste: true,
-            // Performance optimizations
             disableLayerHinting: false,
             disableMonospaceOptimizations: false,
-            // Ensure proper rendering
             renderControlCharacters: false,
             renderFinalNewline: "on",
             rulers: [],
             showFoldingControls: "mouseover",
             showUnused: true,
-            // Widget positioning
             hover: {
               enabled: true,
               delay: 300,
@@ -392,13 +441,21 @@ export default function ProbCodeEditor({
         <div className="output-panel">
           <div className="panel-header">
             <h3>Output</h3>
-            <button
-              onClick={clearOutput}
-              className="clear-btn"
-              title="Clear output"
-            >
-              Clear
-            </button>
+            <div className="output-header-right">
+              {execStats && (
+                <div className="exec-stats">
+                  {execStats.time && <span className="stat">⏱ {execStats.time}</span>}
+                  {execStats.memory && <span className="stat">💾 {execStats.memory}</span>}
+                </div>
+              )}
+              <button
+                onClick={clearOutput}
+                className="clear-btn"
+                title="Clear output"
+              >
+                Clear
+              </button>
+            </div>
           </div>
           <pre 
             className={`output-content ${isRunning ? "running" : ""}`}
@@ -452,4 +509,4 @@ export default function ProbCodeEditor({
       )}
     </div>
   );
-}  
+}

@@ -1,13 +1,11 @@
 import React, { useState,useEffect } from 'react';
 import '../styles/UserProfile.css';
-import EditProfile from '../components/EditProfile';
 import { useParams } from 'react-router-dom';
 
 const FriendsProfile = () => {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
   const [userData, setUserData] = useState({
     name: '',
-    email: '',
-    phoneNumber: '',
     profilePicture: '',
     codeforcesHandle: '',
     codeforcesRating: '',
@@ -15,8 +13,6 @@ const FriendsProfile = () => {
     skills: []
   });
   const [cfInfo, setCfInfo] = useState(null);
-  // Get query parameter from URL (e.g., ?id=123)
-  const queryParams = new URLSearchParams(window.location.search);
   const {id} = useParams();
   const userId = id;
 
@@ -24,7 +20,7 @@ const FriendsProfile = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const res = await fetch(`http://localhost:3000/user/${userId}`,
+        const res = await fetch(`${backendUrl}/user/${userId}`,
           {
             method: 'GET',
             headers: {
@@ -42,7 +38,7 @@ const FriendsProfile = () => {
       }
     };
     fetchUserData();
-  }, []);
+  }, [userId, backendUrl]);
 
   // Fetch Codeforces info (handles array response)
   const fetchCodeforcesInfo = async (handle) => {
@@ -82,8 +78,8 @@ const FriendsProfile = () => {
         <div className="info-box">
           <div className="user-details-box">
             <h2>{userData.name}</h2>
-            <p>{userData.email}</p>
-            <p>{userData.phoneNumber}</p>
+            {userData.role && <p>{userData.role}</p>}
+            {userData.location && <p>{userData.location}</p>}
           </div>
           <div className="codeforces-box">
             <h3>Codeforces Handle: {userData.codeforcesHandle || 'Not set'}</h3>
@@ -102,7 +98,7 @@ const FriendsProfile = () => {
             {userData.skills.length > 0 ? (
               <ul>
                 {userData.skills.map((skill, i) => (
-                  <li key={i}>{skill}</li>
+                  <li key={i}>{skill.name}</li>
                 ))}
               </ul>
             ) : <p>No skills listed</p>}
@@ -114,4 +110,3 @@ const FriendsProfile = () => {
 };
 
 export default FriendsProfile;
-

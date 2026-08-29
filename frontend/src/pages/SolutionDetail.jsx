@@ -22,7 +22,7 @@ const SolutionDetail = () => {
 
     const fetchUser = async () => {
       try {
-        const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/auth/me`, {
+        const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"}/api/auth/me`, {
           headers: { Authorization: `Bearer ${jwtoken}` },
         });
         setUser(res.data);
@@ -38,7 +38,7 @@ const SolutionDetail = () => {
     const fetchSolution = async () => {
       try {
         const res = await axios.get(
-          `${import.meta.env.VITE_BACKEND_URL}/api/solutions/detail/${id}`
+          `${import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"}/api/solutions/detail/${id}`
         );
         setSolution(res.data);
       } catch (err) {
@@ -61,7 +61,7 @@ const SolutionDetail = () => {
     setIsDeleting(true);
     try {
       const token = localStorage.getItem("jwtoken");
-      await axios.delete(`${import.meta.env.VITE_BACKEND_URL}/api/solutions/${id}`, {
+      await axios.delete(`${import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"}/api/solutions/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       alert("Solution deleted successfully");

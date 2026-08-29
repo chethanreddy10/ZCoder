@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { LuGithub, LuArrowBigRightDash } from "react-icons/lu";
 import "../styles/Home.css";
 import logo from "../assets/logo-noBg.png";
 
 function Home() {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
-  const [searchQuery, setSearchQuery] = useState("");
   const [activeFeature, setActiveFeature] = useState(0);
+  const searchTimeout = useRef();
 
   useEffect(() => {
     const jwtoken = localStorage.getItem("jwtoken");
@@ -19,12 +20,11 @@ function Home() {
 
   const searched = (e) => {
     const query = e.target.value;
-    setSearchQuery(query);
-    
+    clearTimeout(searchTimeout.current);
     if (query.length > 0) {
-      const searchTimer = setTimeout(async () => {
+      searchTimeout.current = setTimeout(async () => {
         try {
-          const response = await fetch(`http://localhost:3000/users/${query}`);
+          const response = await fetch(`${backendUrl}/users/${encodeURIComponent(query)}`);
           if(!response.ok) {
             setUsers('No users found');
           }else{
@@ -36,11 +36,12 @@ function Home() {
         }
       }, 1000);
       
-      return () => clearTimeout(searchTimer);
     } else {
       setUsers([]);
     }
   };
+
+  useEffect(() => () => clearTimeout(searchTimeout.current), []);
 
   const features = [
     { 
@@ -75,7 +76,7 @@ function Home() {
       icon: "💻",
       title: "Inbuilt Code-Editor",
       desc: "Write, test, and debug your code directly in the browser.",
-      route: "code-editor",
+      route: "/code-editor",
       color: "var(--feature-5)"
     }
   ];
@@ -123,9 +124,9 @@ function Home() {
               {users==='No users found' ? users : (
                 <ul className="user-list">
                   {users.map((user, index) => (
-                    <li key={index} className="user-item">
+                    <li key={user.id || index} className="user-item" onClick={() => navigate(`/user/${user.id}`)}>
                       <img src={user.profilePicture || "https://static.vecteezy.com/system/resources/thumbnails/019/879/186/small_2x/user-icon-on-transparent-background-free-png.png"}
-                      alt={`${user.name}'s avatar`}
+                      alt={`${user.username}'s avatar`}
                       className="user-avatar" 
                       />
                       <span className="user-name">{user.username}</span>
@@ -232,7 +233,7 @@ function Home() {
         <div className="copyright">
           <p>© 2025 Zcoder. All rights reserved.</p>
         </div>
-      </footer>
+      </footer> 
     </div>
     </>
   );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { LANGUAGE_VERSIONS } from './constants';
+import { COMPILER_IDS, LANGUAGE_DISPLAY_NAMES } from './constants';
 import './LanguageSelector.css';
 
 export default function LanguageSelector({ language, setLanguage }) {
@@ -9,11 +9,10 @@ export default function LanguageSelector({ language, setLanguage }) {
       onChange={(e) => setLanguage(e.target.value)}
       className="language-selector"
     >
-      {Object.keys(LANGUAGE_VERSIONS).map((lang) => (
+      {Object.keys(COMPILER_IDS).map((lang) => (
        <option key={lang} value={lang}>
-          {lang} ({LANGUAGE_VERSIONS[lang]})
+          {LANGUAGE_DISPLAY_NAMES[lang] || lang}
        </option>
-
       ))}
     </select>
   );

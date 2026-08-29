@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 // import Loader from "./Loader";
 import "../styles/Discussion.css";
-const backend = import.meta.env.VITE_BACKEND_URL ;
+const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
 const Discussions = () => {
   const navigate = useNavigate();
@@ -12,7 +12,6 @@ const Discussions = () => {
   const [solutions, setSolutions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const backend = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
     // Redirect to the login page if the user is not authenticated
@@ -20,12 +19,12 @@ const Discussions = () => {
     if (jwtoken === null || jwtoken === undefined) {
       navigate("/login");
     }
-  });
+  }, [navigate]);
 
   useEffect(() => {
     const fetchSolutions = async () => {
       try {
-        const res = await axios.get(`http://localhost:3000/api/solutions/${titleSlug}`);
+        const res = await axios.get(`${backendUrl}/api/solutions/${titleSlug}`);
         setSolutions(res.data);
       } catch (err) {
         setError(err.response?.data?.message || err.message);
@@ -38,10 +37,10 @@ const Discussions = () => {
 
   const handleVote = async (solutionId, voteType) => {
     try {
-      await axios.post(`http://localhost:3000/api/solutions/vote`, {
+      await axios.post(`${backendUrl}/api/solutions/vote`, {
         solutionId,
         voteType,
-      });
+      }, { headers: { Authorization: `Bearer ${localStorage.getItem("jwtoken")}` } });
       setSolutions(
         solutions.map((sol) =>
           sol._id === solutionId
@@ -74,7 +73,7 @@ const Discussions = () => {
               onClick={() => navigate(`/solution/${solution._id}`)}
             >
               <div className="solution-header">
-                <span className="author">{solution.author.Username}</span>
+                <span className="author">{solution.author?.Username}</span>
                 <span className="votes">
                   <button
                     onClick={(e) => {
